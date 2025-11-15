@@ -66,7 +66,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
             Row(children: [
               const Text('Reminder: '),
               TextButton(
-                child: Text(time != null ? time.format(context) : 'Set Time'),
+                child: Text(time?.format(context) ?? 'Set Time'),
                 onPressed: () async {
                   final picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
                   if (picked != null) {
