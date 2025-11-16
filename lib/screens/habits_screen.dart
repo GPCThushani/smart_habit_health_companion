@@ -43,7 +43,6 @@ class _HabitsScreenState extends State<HabitsScreen> {
   Future<void> _delete(Habit h) async {
     if (h.id != null) {
       await DBHelper().deleteHabit(h.id!);
-      // if there was a scheduled notification, cancel it (using id as notif id)
       if (h.id != null) await NotifyHelper.cancel(h.id!);
       await _load();
     }
@@ -68,10 +67,13 @@ class _HabitsScreenState extends State<HabitsScreen> {
               TextButton(
                 child: Text(time?.format(context) ?? 'Set Time'),
                 onPressed: () async {
-                  final picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: time ?? TimeOfDay.now(),
+                  );
                   if (picked != null) {
                     time = picked;
-                    setState(() {}); // to update label after picking
+                    setState(() {}); // update label after picking
                   }
                 },
               ),
@@ -92,6 +94,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
             onPressed: () async {
               final title = titleCtrl.text.trim();
               if (title.isEmpty) return;
+
               final map = {
                 'title': title,
                 'notes': notesCtrl.text.trim(),
@@ -100,10 +103,11 @@ class _HabitsScreenState extends State<HabitsScreen> {
                 'reminderMinute': time?.minute,
                 'createdAt': DateTime.now().toIso8601String(),
               };
+
               if (edit == null) {
                 final id = await DBHelper().insertHabit(map);
                 if (time != null) {
-                  // use DB id as notification id
+                  // null-safety fix: use !
                   await NotifyHelper.scheduleDaily(id, title, time!.hour, time!.minute);
                 }
               } else {
@@ -114,6 +118,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
                   await NotifyHelper.scheduleDaily(edit.id!, title, time!.hour, time!.minute);
                 }
               }
+
               await _load();
               Navigator.pop(context);
             },
@@ -124,7 +129,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
     );
   }
 
-  // helper to create TimeOfDay from ints
+  // helper to create TimeOfDay from integers
   TimeOfDay? EditTimeOfDay(int? h, int? m) => (h == null || m == null) ? null : TimeOfDay(hour: h, minute: m);
 
   @override
@@ -142,7 +147,10 @@ class _HabitsScreenState extends State<HabitsScreen> {
                       ? Text('Reminder: ${h.reminderHour!.toString().padLeft(2, '0')}:${h.reminderMinute!.toString().padLeft(2, '0')}')
                       : null,
                   leading: IconButton(
-                    icon: Icon(h.isCompleted ? Icons.check_box : Icons.check_box_outline_blank, color: h.isCompleted ? Colors.green : null),
+                    icon: Icon(
+                      h.isCompleted ? Icons.check_box : Icons.check_box_outline_blank,
+                      color: h.isCompleted ? Colors.green : null,
+                    ),
                     onPressed: () => _toggle(h),
                   ),
                   trailing: Row(mainAxisSize: MainAxisSize.min, children: [

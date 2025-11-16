@@ -1,4 +1,3 @@
-// lib/models/habit.dart
 class Habit {
   final int? id;
   final String title;
@@ -6,6 +5,7 @@ class Habit {
   final bool isCompleted;
   final int? reminderHour;
   final int? reminderMinute;
+  final int? notifyId;
   final DateTime? createdAt;
 
   Habit({
@@ -15,6 +15,7 @@ class Habit {
     this.isCompleted = false,
     this.reminderHour,
     this.reminderMinute,
+    this.notifyId,
     this.createdAt,
   });
 
@@ -25,6 +26,7 @@ class Habit {
         'isCompleted': isCompleted ? 1 : 0,
         'reminderHour': reminderHour,
         'reminderMinute': reminderMinute,
+        'notifyId': notifyId,
         'createdAt': createdAt?.toIso8601String(),
       };
 
@@ -32,9 +34,10 @@ class Habit {
         id: m['id'],
         title: m['title'],
         notes: m['notes'],
-        isCompleted: m['isCompleted'] == 1,
+        isCompleted: (m['isCompleted'] ?? 0) == 1,
         reminderHour: m['reminderHour'],
         reminderMinute: m['reminderMinute'],
+        notifyId: m['notifyId'],
         createdAt: m['createdAt'] != null ? DateTime.parse(m['createdAt']) : null,
       );
 }

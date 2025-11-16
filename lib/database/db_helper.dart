@@ -31,7 +31,8 @@ class DBHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         age INTEGER,
-        gender TEXT
+        weight REAL,
+        goals TEXT
       )
     ''');
 
@@ -39,9 +40,12 @@ class DBHelper {
       CREATE TABLE habits (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT,
-        description TEXT,
-        hour INTEGER,
-        minute INTEGER
+        notes TEXT,
+        isCompleted INTEGER DEFAULT 0,
+        reminderHour INTEGER,
+        reminderMinute INTEGER,
+        notifyId INTEGER,
+        createdAt TEXT
       )
     ''');
 
@@ -60,18 +64,25 @@ class DBHelper {
 
   Future<Map<String, dynamic>?> getProfile() async {
     final db = await database;
-    final data = await db.query('profile');
+    final data = await db.query('profile', orderBy: 'id ASC', limit: 1);
     return data.isNotEmpty ? data.first : null;
   }
 
   Future<void> upsertProfile(Map<String, dynamic> map) async {
     final db = await database;
-    final exists = await db.query('profile');
+    final exists = await db.query('profile', orderBy: 'id ASC', limit: 1);
 
     if (exists.isEmpty) {
       await db.insert('profile', map);
     } else {
-      await db.update('profile', map);
+      // update the first profile row
+      final id = exists.first['id'] as int?;
+      if (id != null) {
+        await db.update('profile', map, where: 'id = ?', whereArgs: [id]);
+      } else {
+        // fallback
+        await db.update('profile', map);
+      }
     }
   }
 
@@ -79,7 +90,7 @@ class DBHelper {
 
   Future<List<Map<String, dynamic>>> getAllHabits() async {
     final db = await database;
-    return await db.query('habits');
+    return await db.query('habits', orderBy: 'createdAt DESC');
   }
 
   Future<int> insertHabit(Map<String, dynamic> map) async {
@@ -89,11 +100,13 @@ class DBHelper {
 
   Future<int> updateHabit(Map<String, dynamic> map) async {
     final db = await database;
+    final id = map['id'] as int?;
+    if (id == null) return 0;
     return await db.update(
       'habits',
       map,
       where: 'id = ?',
-      whereArgs: [map['id']],
+      whereArgs: [id],
     );
   }
 
@@ -106,7 +119,7 @@ class DBHelper {
 
   Future<List<Map<String, dynamic>>> getAllReminders() async {
     final db = await database;
-    return await db.query('reminders');
+    return await db.query('reminders', orderBy: 'id DESC');
   }
 
   Future<int> insertReminder(Map<String, dynamic> map) async {
