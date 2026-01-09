@@ -1,3 +1,4 @@
+// lib/database/db_helper.dart
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -20,8 +21,14 @@ class DBHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createTables,
+      onUpgrade: (db, oldV, newV) async {
+        await db.execute('DROP TABLE IF EXISTS profile');
+        await db.execute('DROP TABLE IF EXISTS habits');
+        await db.execute('DROP TABLE IF EXISTS reminders');
+        await _createTables(db, newV);
+      },
     );
   }
 
@@ -39,7 +46,7 @@ class DBHelper {
     await db.execute('''
       CREATE TABLE habits (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
+        title TEXT NOT NULL,
         notes TEXT,
         isCompleted INTEGER DEFAULT 0,
         reminderHour INTEGER,
@@ -52,7 +59,7 @@ class DBHelper {
     await db.execute('''
       CREATE TABLE reminders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
+        title TEXT NOT NULL,
         hour INTEGER,
         minute INTEGER,
         notifyId INTEGER
@@ -60,41 +67,30 @@ class DBHelper {
     ''');
   }
 
-  // ---------------- PROFILE ----------------
-
+  // ---------------- Profile ----------------
   Future<Map<String, dynamic>?> getProfile() async {
     final db = await database;
-    final data = await db.query('profile', orderBy: 'id ASC', limit: 1);
-    return data.isNotEmpty ? data.first : null;
+    final rows = await db.query('profile', limit: 1);
+    if (rows.isNotEmpty) return rows.first;
+    return null;
   }
 
-  Future<void> upsertProfile(Map<String, dynamic> map) async {
+  Future<void> updateProfile(Map<String, dynamic> map) async {
     final db = await database;
-    final exists = await db.query('profile', orderBy: 'id ASC', limit: 1);
-
-    if (exists.isEmpty) {
+    final rows = await db.query('profile', limit: 1);
+    if (rows.isEmpty) {
       await db.insert('profile', map);
     } else {
-      // update the first profile row
-      final id = exists.first['id'] as int?;
-      if (id != null) {
-        await db.update('profile', map, where: 'id = ?', whereArgs: [id]);
-      } else {
-        // fallback
-        await db.update('profile', map);
-      }
+      await db.update('profile', map,
+          where: 'id = ?', whereArgs: [rows.first['id']]);
     }
   }
 
-  // ---------------- HABITS ----------------
-
-  Future<List<Map<String, dynamic>>> getAllHabits() async {
-    final db = await database;
-    return await db.query('habits', orderBy: 'createdAt DESC');
-  }
-
+  // ---------------- Habits ----------------
   Future<int> insertHabit(Map<String, dynamic> map) async {
     final db = await database;
+    if (map['isCompleted'] is bool) map['isCompleted'] = map['isCompleted'] ? 1 : 0;
+    map['createdAt'] ??= DateTime.now().toIso8601String();
     return await db.insert('habits', map);
   }
 
@@ -102,12 +98,13 @@ class DBHelper {
     final db = await database;
     final id = map['id'] as int?;
     if (id == null) return 0;
-    return await db.update(
-      'habits',
-      map,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    if (map['isCompleted'] is bool) map['isCompleted'] = map['isCompleted'] ? 1 : 0;
+    return await db.update('habits', map, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Map<String, dynamic>>> getAllHabits() async {
+    final db = await database;
+    return await db.query('habits', orderBy: 'createdAt DESC');
   }
 
   Future<int> deleteHabit(int id) async {
@@ -115,16 +112,15 @@ class DBHelper {
     return await db.delete('habits', where: 'id = ?', whereArgs: [id]);
   }
 
-  // ---------------- REMINDERS ----------------
+  // ---------------- Reminders ----------------
+  Future<int> insertReminder(Map<String, dynamic> map) async {
+    final db = await database;
+    return await db.insert('reminders', map);
+  }
 
   Future<List<Map<String, dynamic>>> getAllReminders() async {
     final db = await database;
     return await db.query('reminders', orderBy: 'id DESC');
-  }
-
-  Future<int> insertReminder(Map<String, dynamic> map) async {
-    final db = await database;
-    return await db.insert('reminders', map);
   }
 
   Future<int> deleteReminder(int id) async {

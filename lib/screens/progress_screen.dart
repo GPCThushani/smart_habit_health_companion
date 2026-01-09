@@ -1,7 +1,6 @@
-// lib/screens/progress_screen.dart
 import 'package:flutter/material.dart';
-import '../database/db_helper.dart';
-import '../models/habit.dart';
+import '../hive_service.dart';
+import '../models/habit_hive.dart';
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -10,19 +9,17 @@ class ProgressScreen extends StatefulWidget {
 }
 
 class _ProgressScreenState extends State<ProgressScreen> {
-  List<Habit> _habits = [];
+  List<HabitHive> _habits = [];
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadHabits();
   }
 
-  Future<void> _load() async {
-    final rows = await DBHelper().getAllHabits();
-    setState(() {
-      _habits = rows.map((r) => Habit.fromMap(r)).toList();
-    });
+  void _loadHabits() {
+    final items = HiveService.getAllHabits().cast<HabitHive>();
+    setState(() => _habits = items);
   }
 
   @override
@@ -32,7 +29,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final percent = total == 0 ? 0 : ((done / total) * 100).round();
 
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: () async => _loadHabits(),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -52,8 +49,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          // Optionally add charts later with fl_chart
         ],
       ),
     );

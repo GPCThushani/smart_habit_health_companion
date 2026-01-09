@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "412885194702",
+    "project_id": "smart-habit-health",
+    "storage_bucket": "smart-habit-health.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:412885194702:android:15645b5d30665430553d9f",
+        "android_client_info": {
+          "package_name": "com.smart_habit_health_companion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHrYu8Lkono5ADPMh-lx24sQODYbY77i8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

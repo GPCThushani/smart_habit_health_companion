@@ -1,0 +1,36 @@
+type User @table {
+  displayName: String!
+  createdAt: Timestamp!
+  email: String
+  photoUrl: String
+}
+
+type Habit @table {
+  user: User
+  name: String!
+  frequency: String!
+  target: String!
+  description: String
+  category: String
+}
+
+type HabitCompletion @table {
+  habit: Habit
+  completionDate: Date!
+  createdAt: Timestamp!
+}
+
+type Reminder @table {
+  user: User
+  name: String!
+  remindAt: Timestamp!
+  recurrence: String!
+  description: String
+  category: String
+}
+
+type ReminderCompletion @table {
+  reminder: Reminder
+  completionDate: Date!
+  createdAt: Timestamp!
+}

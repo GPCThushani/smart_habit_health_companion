@@ -40,7 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'weight': double.tryParse(_weight.text),
       'goals': _goals.text.trim(),
     };
-    await DBHelper().upsertProfile(map);
+    await DBHelper().updateProfile(map);
     Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
   }
 

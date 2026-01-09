@@ -1,3 +1,22 @@
+// Top-level build.gradle.kts for Android
+
+buildscript {
+    // 👇 THIS WAS MISSING inside buildscript
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // We are commenting this out for now because you are running a Local App (SQLite).
+        // If you enable this without a google-services.json file, the build will fail.
+        // classpath("com.google.gms:google-services:4.4.0") 
+        
+        // This is required for Android builds
+        classpath("com.android.tools.build:gradle:8.1.0") // Ensure this matches your Android Studio version
+        classpath(kotlin("gradle-plugin", version = "1.9.0")) 
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -5,20 +24,10 @@ allprojects {
     }
 }
 
-val newBuildDir: Directory =
-    rootProject.layout.buildDirectory
-        .dir("../../build")
-        .get()
-rootProject.layout.buildDirectory.value(newBuildDir)
-
-subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
-}
 subprojects {
     project.evaluationDependsOn(":app")
 }
 
 tasks.register<Delete>("clean") {
-    delete(rootProject.layout.buildDirectory)
+    delete(rootProject.buildDir)
 }

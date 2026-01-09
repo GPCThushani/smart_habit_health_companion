@@ -1,7 +1,6 @@
-// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
-import '../models/reminder.dart';
+import '../models/reminder.dart'; // Make sure this matches your file name
 import '../notifications/notify_helper.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -27,25 +26,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _addReminder() async {
     final titleCtrl = TextEditingController();
     TimeOfDay? picked;
-    final ok = await showDialog<bool>(
+    
+    // Simple Dialog to get title
+    await showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Add global reminder (not per-habit)'),
-        content: TextField(controller: titleCtrl, decoration: const InputDecoration(hintText: 'Title')),
+        title: const Text('Add General Reminder'),
+        content: TextField(
+          controller: titleCtrl, 
+          decoration: const InputDecoration(hintText: 'e.g. Drink Water')
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Next')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+               if (titleCtrl.text.isNotEmpty) {
+                 Navigator.pop(context);
+                 picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+               }
+            }, 
+            child: const Text('Next')
+          ),
         ],
       ),
     );
-    if (ok != true) return;
-    final title = titleCtrl.text.trim();
-    if (title.isEmpty) return;
-    picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+
     if (picked == null) return;
-    final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    await DBHelper().insertReminder({'title': title, 'hour': picked.hour, 'minute': picked.minute, 'notifyId': id});
-    await NotifyHelper.scheduleDaily(id, title, picked.hour, picked.minute);
+    
+    final title = titleCtrl.text.trim();
+    final notifyId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    // Save to Local DB
+    await DBHelper().insertReminder({
+      'title': title, 
+      'hour': picked!.hour, 
+      'minute': picked!.minute, 
+      'notifyId': notifyId
+    });
+
+    // Schedule Notification
+    await NotifyHelper.scheduleDaily(notifyId, title, picked!.hour, picked!.minute);
+    
     await _load();
   }
 
@@ -64,26 +85,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          ElevatedButton.icon(onPressed: _addReminder, icon: const Icon(Icons.add_alarm), label: const Text('Add Reminder')),
-          const SizedBox(height: 12),
-          const Text('Your Reminders:', style: TextStyle(fontWeight: FontWeight.bold)),
+          ElevatedButton.icon(
+            onPressed: _addReminder, 
+            icon: const Icon(Icons.add_alarm), 
+            label: const Text('Add New Reminder')
+          ),
+          const SizedBox(height: 20),
+          const Text('Active Reminders:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 10),
+          
           ..._list.map((r) => Card(
-                child: ListTile(
-                  title: Text(r.title),
-                  subtitle: Text('${r.hour.toString().padLeft(2, '0')}:${r.minute.toString().padLeft(2, '0')}'),
-                  trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () => _delete(r)),
-                ),
-              )),
-          const SizedBox(height: 16),
-          ElevatedButton(
-              onPressed: () async {
-                // optional: clear all DB (dangerous)
+            elevation: 2,
+            child: ListTile(
+              leading: const Icon(Icons.alarm, color: Colors.teal),
+              title: Text(r.title),
+              subtitle: Text('${r.hour.toString().padLeft(2, '0')}:${r.minute.toString().padLeft(2, '0')}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red), 
+                onPressed: () => _delete(r)
+              ),
+            ),
+          )),
+
+          if (_list.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(20.0),
+              child: Text("No reminders set yet.", style: TextStyle(color: Colors.grey)),
+            ),
+
+          const Divider(height: 40),
+          
+          TextButton.icon(
+            icon: const Icon(Icons.delete_forever, color: Colors.red),
+            label: const Text('Clear All Data (Reset App)', style: TextStyle(color: Colors.red)),
+            onPressed: () async {
+              // Confirmation Dialog
+              bool confirm = await showDialog(
+                context: context, 
+                builder: (c) => AlertDialog(
+                  title: const Text('Reset App?'),
+                  content: const Text('This will delete all habits and reminders.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                    TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
+                  ]
+                )
+              ) ?? false;
+
+              if (confirm) {
                 final db = await DBHelper().database;
                 await db.delete('habits');
                 await db.delete('reminders');
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All data cleared')));
-              },
-              child: const Text('Clear All Data (dangerous)')),
+                await db.delete('profile');
+                if (mounted) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All data cleared')));
+                   _load();
+                }
+              }
+            },
+          ),
         ],
       ),
     );

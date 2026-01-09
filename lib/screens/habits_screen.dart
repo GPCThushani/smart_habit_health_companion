@@ -1,7 +1,6 @@
-// lib/screens/habits_screen.dart
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
-import '../models/habit.dart';
+import '../models/habit.dart'; // Make sure this matches your file name
 import '../notifications/notify_helper.dart';
 
 class HabitsScreen extends StatefulWidget {
@@ -34,6 +33,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
       isCompleted: !h.isCompleted,
       reminderHour: h.reminderHour,
       reminderMinute: h.reminderMinute,
+      notifyId: h.notifyId,
       createdAt: h.createdAt,
     );
     await DBHelper().updateHabit(updated.toMap());
@@ -43,7 +43,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
   Future<void> _delete(Habit h) async {
     if (h.id != null) {
       await DBHelper().deleteHabit(h.id!);
-      if (h.id != null) await NotifyHelper.cancel(h.id!);
+      if (h.notifyId != null) await NotifyHelper.cancel(h.notifyId!);
       await _load();
     }
   }
@@ -51,7 +51,9 @@ class _HabitsScreenState extends State<HabitsScreen> {
   Future<void> _openAddEdit([Habit? edit]) async {
     final titleCtrl = TextEditingController(text: edit?.title ?? '');
     final notesCtrl = TextEditingController(text: edit?.notes ?? '');
-    TimeOfDay? time = EditTimeOfDay(edit?.reminderHour, edit?.reminderMinute);
+    TimeOfDay? time = (edit?.reminderHour != null && edit?.reminderMinute != null)
+        ? TimeOfDay(hour: edit!.reminderHour!, minute: edit.reminderMinute!)
+        : null;
 
     await showDialog(
       context: context,
@@ -73,7 +75,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
                   );
                   if (picked != null) {
                     time = picked;
-                    setState(() {}); // update label after picking
+                    setState(() {});
                   }
                 },
               ),
@@ -95,32 +97,38 @@ class _HabitsScreenState extends State<HabitsScreen> {
               final title = titleCtrl.text.trim();
               if (title.isEmpty) return;
 
+              // Create unique ID for notification
+              final notifyId = edit?.notifyId ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
               final map = {
                 'title': title,
                 'notes': notesCtrl.text.trim(),
-                'isCompleted': edit?.isCompleted == true ? 1 : 0,
+                'isCompleted': (edit?.isCompleted ?? false) ? 1 : 0,
                 'reminderHour': time?.hour,
                 'reminderMinute': time?.minute,
-                'createdAt': DateTime.now().toIso8601String(),
+                'notifyId': notifyId,
+                'createdAt': (edit?.createdAt ?? DateTime.now()).toIso8601String(),
               };
 
               if (edit == null) {
-                final id = await DBHelper().insertHabit(map);
+                // Insert New
+                await DBHelper().insertHabit(map);
                 if (time != null) {
-                  // null-safety fix: use !
-                  await NotifyHelper.scheduleDaily(id, title, time!.hour, time!.minute);
+                  await NotifyHelper.scheduleDaily(notifyId, title, time!.hour, time!.minute);
                 }
               } else {
+                // Update Existing
                 map['id'] = edit.id;
                 await DBHelper().updateHabit(map);
-                if (time != null && edit.id != null) {
-                  await NotifyHelper.cancel(edit.id!);
-                  await NotifyHelper.scheduleDaily(edit.id!, title, time!.hour, time!.minute);
+                // Cancel old and schedule new
+                if (edit.notifyId != null) await NotifyHelper.cancel(edit.notifyId!);
+                if (time != null) {
+                   await NotifyHelper.scheduleDaily(notifyId, title, time!.hour, time!.minute);
                 }
               }
 
               await _load();
-              Navigator.pop(context);
+              if (mounted) Navigator.pop(context);
             },
             child: const Text('Save'),
           ),
@@ -128,9 +136,6 @@ class _HabitsScreenState extends State<HabitsScreen> {
       ),
     );
   }
-
-  // helper to create TimeOfDay from integers
-  TimeOfDay? EditTimeOfDay(int? h, int? m) => (h == null || m == null) ? null : TimeOfDay(hour: h, minute: m);
 
   @override
   Widget build(BuildContext context) {
@@ -141,22 +146,28 @@ class _HabitsScreenState extends State<HabitsScreen> {
               itemCount: _habits.length,
               itemBuilder: (c, i) {
                 final h = _habits[i];
-                return ListTile(
-                  title: Text(h.title),
-                  subtitle: h.reminderHour != null
-                      ? Text('Reminder: ${h.reminderHour!.toString().padLeft(2, '0')}:${h.reminderMinute!.toString().padLeft(2, '0')}')
-                      : null,
-                  leading: IconButton(
-                    icon: Icon(
-                      h.isCompleted ? Icons.check_box : Icons.check_box_outline_blank,
-                      color: h.isCompleted ? Colors.green : null,
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  child: ListTile(
+                    title: Text(h.title, style: TextStyle(
+                      decoration: h.isCompleted ? TextDecoration.lineThrough : null,
+                      color: h.isCompleted ? Colors.grey : Colors.black
+                    )),
+                    subtitle: h.reminderHour != null
+                        ? Text('⏰ ${h.reminderHour!.toString().padLeft(2, '0')}:${h.reminderMinute!.toString().padLeft(2, '0')}')
+                        : null,
+                    leading: IconButton(
+                      icon: Icon(
+                        h.isCompleted ? Icons.check_circle : Icons.circle_outlined,
+                        color: h.isCompleted ? Colors.green : Colors.grey,
+                      ),
+                      onPressed: () => _toggle(h),
                     ),
-                    onPressed: () => _toggle(h),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _openAddEdit(h)),
+                      IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _delete(h)),
+                    ]),
                   ),
-                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                    IconButton(icon: const Icon(Icons.edit), onPressed: () => _openAddEdit(h)),
-                    IconButton(icon: const Icon(Icons.delete), onPressed: () => _delete(h)),
-                  ]),
                 );
               },
             ),
